@@ -34,7 +34,13 @@ def main():
         ARG8='AMI',       # Amihud
         ARG9='BODY',      # 实体率
         ARG10='UP_S',     # 上影线
-        ARG11='LO_S'      # 下影线
+        ARG11='LO_S',      # 下影线
+        ARG12='LOG_RET',  # 对数收益
+        ARG13='SKEW',     # 偏度
+        ARG14='KURT',     # 峰度
+        ARG15='BB_W',     # 布林带宽度
+        ARG16='ATR',      # 标准化ATR
+        ARG17='V_SKEW'    # 波动率偏斜
     )
     # 注册 GPU 算子
     pset.addPrimitive(operators.add, 2)
@@ -54,6 +60,18 @@ def main():
     pset.addPrimitive(operators.ts_rank_10, 1)
     pset.addPrimitive(operators.decay_10, 1)
     pset.addPrimitive(operators.cs_scale, 1)
+    pset.addPrimitive(operators.if_else, 3) 
+    pset.addPrimitive(operators.step, 1)
+    pset.addPrimitive(operators.signed_sq, 1)
+    pset.addPrimitive(operators.signed_sqrt, 1)
+    pset.addPrimitive(operators.ts_beta_10, 2)
+    pset.addPrimitive(operators.ts_resid_10, 2)
+    pset.addPrimitive(operators.ts_argmax_10, 1)
+    pset.addPrimitive(operators.ts_argmin_10, 1)
+
+    # 4. 注册求和算子
+    def ts_sum_10(x): return operators.ts_sum(x, 10)
+    pset.addPrimitive(ts_sum_10, 1)
 
 
     pset.addPrimitive(operators.ts_corr_10, 2)

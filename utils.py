@@ -5,10 +5,7 @@ import datetime
 import config
 
 def merge_output_files(save_dir):
-    """
-    [新增功能] 将 save_dir 下所有的 AlphaFactorX.parquet 合并为一个大文件
-    格式：Wide Format (TradingDay, SecuCode, Factor1, Factor2, ...)
-    """
+
     print(f"\n[Output] Merging individual factor files in {save_dir}...")
     
     # 1. 找到所有因子文件
@@ -48,7 +45,7 @@ def merge_output_files(save_dir):
         merged_df.to_parquet(parquet_path, index=False)
         
         
-        print(f"  [Success] Merged data saved to:\n    -> {parquet_path}")
+        print(f"[Success] Merged data saved to:\n    -> {parquet_path}")
 
 def save_best_factors(hof, data_portal, toolbox):
     """
@@ -99,7 +96,13 @@ def save_best_factors(hof, data_portal, toolbox):
                 data_portal.features['AMIHUD'],
                 data_portal.features['BODY_R'],
                 data_portal.features['UP_SHD'],
-                data_portal.features['LO_SHD']
+                data_portal.features['LO_SHD'],
+                data_portal.features['LOG_RET'],
+                data_portal.features['SKEW'],
+                data_portal.features['KURT'],
+                data_portal.features['BB_WIDTH'],
+                data_portal.features['ATR'],
+                data_portal.features['VOL_SKEW']
             )
             
             # --- 数据搬运: GPU -> CPU ---

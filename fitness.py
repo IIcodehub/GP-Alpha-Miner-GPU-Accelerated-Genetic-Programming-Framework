@@ -27,7 +27,13 @@ def calculate_fitness_gpu(individual, data_portal, toolbox):
             data_portal.features['AMIHUD'],     # ARG8
             data_portal.features['BODY_R'],     # ARG9
             data_portal.features['UP_SHD'],     # ARG10
-            data_portal.features['LO_SHD']      # ARG11
+            data_portal.features['LO_SHD'],      # ARG11
+            data_portal.features['LOG_RET'],    # ARG12
+            data_portal.features['SKEW'],       # ARG13
+            data_portal.features['KURT'],       # ARG14
+            data_portal.features['BB_WIDTH'],   # ARG15
+            data_portal.features['ATR'],        # ARG16
+            data_portal.features['VOL_SKEW']    # ARG17
         )
     except Exception:
         return -999.0,
