@@ -11,13 +11,13 @@ This project is specifically designed for the **A-share market**, featuring buil
 
 * 🚀 **GPU Ultra-Fast Computation**: Underlying operators are implemented based on `CuPy` matrix operations, supporting second-level factor calculation for 5000+ stocks across the entire market, with efficiency improved by 50-100x compared to CPUs.
 * 🛡️ **Rigorous Data Alignment**:
-* **Feature De-dimensioning**: Completely masks absolute prices (such as Open, Close), forcing the use of relative returns and ratios to prevent the machine from mining pseudo-factors.
-* **Target Shift**: Strictly executes `Target = Returns.shift(-1)`, ensuring that T-day data is used to predict T+1 day returns, eliminating look-ahead bias.
+    * **Feature De-dimensioning**: Completely masks absolute prices (such as Open, Close), forcing the use of relative returns and ratios to prevent the machine from mining pseudo-factors.
+    * **Target Shift**: Strictly executes `Target = Returns.shift(-1)`, ensuring that T-day data is used to predict T+1 day returns, eliminating look-ahead bias.
 
 
 * 🧠 **Intelligent Fitness Evaluation**:
-* **IC_METHOD = 'Rank'**: Forces the use of Spearman rank correlation to resist data noise.
-* **Multiple Penalties**: Introduces Turnover Penalty and Parsimony Pressure (complexity penalty) to guide the machine toward mining factors with concise logic and stable holdings.
+    * **IC_METHOD = 'Rank'**: Forces the use of Spearman rank correlation to resist data noise.
+    * **Multiple Penalties**: Introduces Turnover Penalty and Parsimony Pressure (complexity penalty) to guide the machine toward mining factors with concise logic and stable holdings.
 
 
 * 🧩 **Rich Operator Library**: Built-in WorldQuant Alpha101-style Time-Series and Cross-Sectional operators.
@@ -29,7 +29,7 @@ This project is specifically designed for the **A-share market**, featuring buil
 
 ```text
 GP-Alpha-Miner/
-├── config.py            # 🎛️ [Center] Global parameter configuration (GPU toggle, population size, penalty coefficients, etc.)
+├── config.py            # 🎛️ [Center] Global parameter configuration 
 ├── data_loader.py       # 🏗️ [Foundation] Data cleaning, feature engineering, CPU->GPU memory transfer
 ├── operators.py         # 🧮 [Engine] CuPy-based vectorized operator library (all running on GPU)
 ├── fitness.py           # ⚖️ [Referee] Fitness function, numerical cleaning, and scoring logic
@@ -47,24 +47,24 @@ To prevent the GP algorithm from "cheating" by fitting absolute stock price valu
 
 | Code (Arg Name) | Full Name | Mathematical Definition (Formula) | Physical Meaning |
 | --- | --- | --- | --- |
-| **RET** | Return |  | **Daily Return**: The most basic source for momentum/reversal signals. |
-| **GAP** | Open Gap |  | **Opening Gap**: Reflects the impact of overnight information on stock prices. |
-| **HL_R** | High-Low Ratio |  | **Intraday Amplitude**: Reflects the degree of long-short divergence during the day. |
-| **CO_R** | Close-Open Ratio |  | **K-line Entity Growth**: Reflects the active push intent of intraday capital. |
-| **L_VOL** | Log Volume |  | **Log Volume**: Reflects transaction activity (dimensionless). |
-| **TO_RATE** | Turnover Rate |  | **Turnover Rate**: Reflects the heat of chip exchange. |
-| **L_CAP** | Log Market Cap |  | **Log Market Cap**: Used to mine market cap preferences (large-cap/small-cap). |
-| **VWAP_D** | VWAP Distance |  | **Average Price Deviation**: Position of closing price relative to the full-day average price; a strong reversal signal. |
-| **AMI** | Amihud Illiquidity |  | **Illiquidity Indicator**: Price fluctuation per unit of trading volume, capturing liquidity premiums. |
-| **BODY** | Body Ratio |  | **Body Ratio**: Proportion of the K-line body relative to the full-day amplitude, used to judge trend strength. |
-| **UP_S** | Upper Shadow |  | **Upper Shadow Rate**: Reflects the strength of overhead selling pressure. |
-| **LO_S** | Lower Shadow |  | **Lower Shadow Rate**: Reflects the strength of underlying support. |
-| **LOG_RET** | Log Return |  | **Log Return**: Compared to simple returns, it better fits normal distribution assumptions and is suitable for capturing non-linear features. |
-| **SKEW** | Return Skewness |  | **Return Skewness**: Measures distribution asymmetry (left/right skew), capturing tail risks. |
-| **KURT** | Return Kurtosis |  | **Return Kurtosis**: Measures the "fat-tail" degree of the distribution, capturing the probability of extreme market conditions. |
-| **BB_W** | Bollinger Width |  | **Bollinger Width**: A classic volatility indicator reflecting market compression (accumulation) and expansion (breakout). |
-| **ATR** | Normalized ATR |  | **Normalized ATR**: De-dimensioned average true range, measuring the absolute intensity of price fluctuations. |
-| **V_SKEW** | Volatility Skew |  | **Volatility Skew**: Measures the "leverage effect." Negative values usually imply that price drops lead to amplified volatility (panic). |
+| **RET** | Return | $Close_t / Close_{t-1} - 1$ | **Daily Return**: The most basic source for momentum/reversal signals. |
+| **GAP** | Open Gap | $Open_t / Close_{t-1} - 1$ | **Opening Gap**: Reflects the impact of overnight information on stock prices. |
+| **HL_R** | High-Low Ratio | $High_t / Low_t - 1$ | **Intraday Amplitude**: Reflects the degree of long-short divergence during the day. |
+| **CO_R** | Close-Open Ratio | $Close_t / Open_t - 1$ | **K-line Entity Growth**: Reflects the active push intent of intraday capital. |
+| **L_VOL** | Log Volume | $\ln(Volume_t + 1)$ | **Log Volume**: Reflects transaction activity (dimensionless). |
+| **TO_RATE** | Turnover Rate | $Volume_t / Shares\_Outstanding$ | **Turnover Rate**: Reflects the heat of chip exchange. |
+| **L_CAP** | Log Market Cap | $\ln(MarketCap_t + 1)$ | **Log Market Cap**: Used to mine market cap preferences (large-cap/small-cap). |
+| **VWAP_D** | VWAP Distance | $Close_t / VWAP_t - 1$ | **Average Price Deviation**: Position of closing price relative to the full-day average price; a strong reversal signal. |
+| **AMI** | Amihud Illiquidity | $\lvert RET_t \rvert / Amount_t$ | **Illiquidity Indicator**: Price fluctuation per unit of trading volume, capturing liquidity premiums. |
+| **BODY** | Body Ratio | $\lvert Close_t - Open_t \rvert / (High_t - Low_t)$ | **Body Ratio**: Proportion of the K-line body relative to the full-day amplitude, used to judge trend strength. |
+| **UP_S** | Upper Shadow | $(High_t - \max(O,C)) / (High_t - Low_t)$ | **Upper Shadow Rate**: Reflects the strength of overhead selling pressure. |
+| **LO_S** | Lower Shadow | $(\min(O,C) - Low_t) / (High_t - Low_t)$ | **Lower Shadow Rate**: Reflects the strength of underlying support. |
+| **LOG_RET** | Log Return | $\ln(Close_t / Close_{t-1})$ | **Log Return**: Compared to simple returns, it better fits normal distribution assumptions and is suitable for capturing non-linear features. |
+| **SKEW** | Return Skewness | $RollingSkew(RET, 20)$ | **Return Skewness**: Measures distribution asymmetry (left/right skew), capturing tail risks. |
+| **KURT** | Return Kurtosis | $RollingKurt(RET, 20)$ | **Return Kurtosis**: Measures the "fat-tail" degree of the distribution, capturing the probability of extreme market conditions. |
+| **BB_W** | Bollinger Width | $(Upper - Lower) / Mid$ | **Bollinger Width**: A classic volatility indicator reflecting market compression (accumulation) and expansion (breakout). |
+| **ATR** | Normalized ATR | $ATR_{14} / Close_t$ | **Normalized ATR**: De-dimensioned average true range, measuring the absolute intensity of price fluctuations. |
+| **V_SKEW** | Volatility Skew | $Corr(RET, \lvert RET \rvert, 20)$ | **Volatility Skew**: Measures the "leverage effect." Negative values usually imply that price drops lead to amplified volatility (panic). |
 
 > **Notes**:
 > 1. All calculations involving division include a `1e-6` epsilon protection to prevent division-by-zero errors.
@@ -82,13 +82,13 @@ This framework implements the following GPU operators in `operators.py`. All ope
 
 | Operator | Description | Arity (Number of Arguments) |
 | --- | --- | --- |
-| `add(x, y)` |  | 2 |
-| `sub(x, y)` |  | 2 |
-| `mul(x, y)` |  | 2 |
-| `protected_div(x, y)` |  (Returns 1 if ) | 2 |
-| `abs_val(x)` |  | 1 |
-| `log_abs(x)` |  | 1 |
-| `sqrt_abs(x)` |  | 1 |
+| `add(x, y)` | $x + y$ | 2 |
+| `sub(x, y)` | $x - y$ | 2 |
+| `mul(x, y)` | $x \times y$ | 2 |
+| `protected_div(x, y)` | $x / y$ (Returns 1 if $y \approx 0$ ) | 2 |
+| `abs_val(x)` | $\lvert x \rvert$ | 1 |
+| `log_abs(x)` | $\ln(\lvert x \rvert + \epsilon)$ | 1 |
+| `sqrt_abs(x)` | $\sqrt{\lvert x \rvert}$ | 1 |
 
 ### 2. Time-Series Operators (Rolling Window)
 
@@ -96,14 +96,14 @@ Used to extract features over time series. Window length  is typically fixed at 
 
 | Operator | Description | Logic |
 | --- | --- | --- |
-| `ts_mean(x, d)` | Rolling Mean |  |
-| `ts_std(x, d)` | Rolling Std Dev |  |
-| `ts_delta(x, d)` | Time-Series Difference |  |
-| `ts_max(x, d)` | Rolling Max |  |
-| `ts_min(x, d)` | Rolling Min |  |
-| `ts_rank(x, d)` | Time-Series Rank | Percentile rank of  within the past  days of data (0~1) |
-| `ts_corr(x, y, d)` | Rolling Correlation |  |
-| `decay_linear(x, d)` | Linear Decay | Weighted average, where more recent data has higher weight () |
+| `ts_mean(x, d)` | Rolling Mean | $\frac{1}{d} \sum_{i=0}^{d-1} x_{t-i}$ |
+| `ts_std(x, d)` | Rolling Std Dev | $\sqrt{Var(x_{t-d}...x_t)}$ |
+| `ts_delta(x, d)` | Time-Series Difference | $x_t - x_{t-d}$ |
+| `ts_max(x, d)` | Rolling Max | $\max(x_{t-d}...x_t)$ |
+| `ts_min(x, d)` | Rolling Min | $\min(x_{t-d}...x_t)$ |
+| `ts_rank(x, d)` | Time-Series Rank | Percentile rank of  within the past $d$ days of data (0~1) |
+| `ts_corr(x, y, d)` | Rolling Correlation | $Corr(x_{t-d}...x_t, y_{t-d}...y_t)$ |
+| `decay_linear(x, d)` | Linear Decay | Weighted average, where more recent data has higher weight ($w_t=d, w_{t-1}=d-1...$) |
 
 ### 3. Cross-Sectional Operators
 
@@ -112,7 +112,7 @@ Used to compare the relative strength of different stocks at the same point in t
 | Operator | Description | Logic |
 | --- | --- | --- |
 | `cs_rank(x)` | Cross-Sectional Rank | Transforms intraday factor values into a percentile rank of 0~1. |
-| `cs_scale(x)` | Cross-Sectional Z-Score | . De-dimensioning allows data from different distributions to be added or subtracted. |
+| `cs_scale(x)` | Cross-Sectional Z-Score | $(x - \mu_{date}) / \sigma_{date}$. De-dimensioning allows data from different distributions to be added or subtracted. |
 
 ---
 
@@ -135,7 +135,6 @@ pip install cupy-cuda11x
 
 # 3. Install other dependencies
 pip install pandas numpy deap pyarrow
-
 ```
 
 ### 2. Data Preparation
@@ -149,7 +148,6 @@ Please place your data in the `data/` directory:
 
 ```bash
 python run.py
-
 ```
 
 ### 4. Results Output
