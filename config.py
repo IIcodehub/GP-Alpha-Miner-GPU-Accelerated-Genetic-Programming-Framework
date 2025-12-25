@@ -35,7 +35,7 @@ PENALTY_TURNOVER = 0.05
 PENALTY_COMPLEXITY = 0.05
 
 # ----------------- 硬件开关 -----------------
-# 是否使用 GPU 加速。如果设为 False，代码会报错（因为 operators 写死了 cupy）
+# 是否使用 GPU 加速。请设置为True，如果设为 False，代码会报错（因为 operators 写死了 cupy）
 USE_GPU = True
 
 OUTPUT_NUM = 20
