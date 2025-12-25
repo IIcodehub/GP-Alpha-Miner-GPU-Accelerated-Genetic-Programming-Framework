@@ -20,7 +20,7 @@ def main():
     data = data_loader.DataPortalGPU()
     
     # 2. GP 环境设置
-    pset = gp.PrimitiveSet("MAIN", 12)
+    pset = gp.PrimitiveSet("MAIN", 18)
 
     pset.renameArguments(
         ARG0='RET',       # 收益率
