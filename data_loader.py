@@ -12,7 +12,6 @@ class DataPortalGPU:
         df_raw = pd.read_parquet(config.RAW_DATA_PATH)
         ret_df = pd.read_parquet(config.RET_DATA_PATH)
 
-        # 1. ID 清洗
         df_raw['Ticker'] = df_raw['Ticker'].astype(str).str[:6]
         ret_df['SecuCode'] = ret_df['SecuCode'].astype(str).str.zfill(6)
         
@@ -22,7 +21,6 @@ class DataPortalGPU:
         df_raw['date'] = pd.to_datetime(df_raw['date'])
         ret_df['date'] = pd.to_datetime(ret_df['date'])
 
-        # 2. 对齐索引
         common_dates = sorted(list(set(df_raw['date']) & set(ret_df['date'])))
         
         pivot_temp = df_raw[df_raw['date'].isin(common_dates)] \
@@ -32,30 +30,25 @@ class DataPortalGPU:
         self.dates = pivot_temp.index
         self.assets = pivot_temp.columns
         
-        # 3. 特征工程 (CPU)
         print("[Data] Feature Engineering (Adding Non-linear & Volatility Features)...")
         
         def get_df_matrix(col_name):
-            # 获取 DataFrame 格式以便使用 rolling 函数
             return df_raw[df_raw['date'].isin(common_dates)] \
                 .pivot(index='date', columns='asset', values=col_name) \
                 .reindex(common_dates).reindex(columns=self.assets) \
                 .ffill().fillna(0)
 
-        # 加载原始 DataFrame
         df_open  = get_df_matrix('OpenPrice')
         df_high  = get_df_matrix('HighPrice')
         df_low   = get_df_matrix('LowPrice')
         df_close = get_df_matrix('ClosePrice')
         df_vol   = get_df_matrix('TurnOverVolume')
         df_amt   = get_df_matrix('TurnOverValue')
-        
-        # 转为 numpy 用于基础计算
+
         raw_close = df_close.values.astype(np.float32)
         raw_rate = get_df_matrix('TurnOverRate').values.astype(np.float32)
         raw_cap  = get_df_matrix('FloatMarketValue').values.astype(np.float32)
 
-        # --- A. 基础相对特征 ---
         ret = np.zeros_like(raw_close)
         ret[1:] = raw_close[1:] / (raw_close[:-1] + 1e-6) - 1.0
         
@@ -68,19 +61,15 @@ class DataPortalGPU:
         log_vol = np.log(df_vol.values + 1.0)
         log_cap = np.log(raw_cap + 1.0)
         
-        # VWAP & AMIHUD
         vwap = df_amt.values / (df_vol.values + 1.0)
         vwap_dist = raw_close / (vwap + 1e-6) - 1.0
         amihud = np.abs(ret) / (df_amt.values + 1e6) * 1e9
         
-        # K线结构
         day_range = df_high.values - df_low.values + 1e-6
         body_r = np.abs(raw_close - df_open.values) / day_range
         up_shd = (df_high.values - np.maximum(df_open.values, raw_close)) / day_range
         lo_shd = (np.minimum(df_open.values, raw_close) - df_low.values) / day_range
 
-        # --- B. 新增高级特征 (Non-linear & Volatility) ---
-        # 窗口设为 20 (一个月)
         W = 20
         
         # 1. LOG_RET: 对数收益率 (非线性基础)
@@ -113,7 +102,6 @@ class DataPortalGPU:
         tr = np.maximum(tr1, np.maximum(tr2, tr3))
         atr = tr.rolling(14).mean().fillna(0).values.astype(np.float32)
         # 为了去量纲，通常建议用 ATR / Close 标准化，这里保留原始 ATR 或 ATR/Close
-        # 建议：标准化 ATR (NATR)
         atr_norm = atr / (raw_close + 1e-6)
 
         # 6. VOL_SKEW: 波动率偏斜 (Upside Vol vs Downside Vol)
@@ -149,7 +137,6 @@ class DataPortalGPU:
         self.features['ATR']      = cp.asarray(atr_norm) 
         self.features['VOL_SKEW'] = cp.asarray(vol_skew)
 
-        # Target 处理 (Shift -1 防未来)
         print("[Data] aligning Target (Shift -1)...")
         target_col = 'ret_open5twap'
         target_raw = ret_df[ret_df['date'].isin(common_dates)] \

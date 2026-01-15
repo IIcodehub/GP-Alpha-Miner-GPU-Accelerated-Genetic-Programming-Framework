@@ -126,7 +126,6 @@ def calculate_fitness_gpu(individual, data_portal, toolbox):
     ic_std = cp.std(daily_ic)
     
     icir = 0.0
-    # 防止除以极小值
     if ic_std > 1e-7:
         icir = ic_mean / ic_std
         

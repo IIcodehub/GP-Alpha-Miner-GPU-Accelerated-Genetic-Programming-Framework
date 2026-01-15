@@ -5,7 +5,10 @@ import datetime
 import config
 
 def merge_output_files(save_dir):
-
+    """
+    [新增功能] 将 save_dir 下所有的 AlphaFactorX.parquet 合并为一个大文件
+    格式：Wide Format (TradingDay, SecuCode, Factor1, Factor2, ...)
+    """
     print(f"\n[Output] Merging individual factor files in {save_dir}...")
     
     # 1. 找到所有因子文件
@@ -26,10 +29,8 @@ def merge_output_files(save_dir):
     # 3. 读取并拼接
     for f in files:
         path = os.path.join(save_dir, f)
-        # 读取单个因子文件 (TradingDay, SecuCode, AlphaFactorX)
         df = pd.read_parquet(path)
         
-        # 将 [TradingDay, SecuCode] 设为索引，以便横向 Concat
         df = df.set_index(['TradingDay', 'SecuCode'])
         dfs.append(df)
     
@@ -37,7 +38,6 @@ def merge_output_files(save_dir):
         # 4. 横向合并 (axis=1)
         merged_df = pd.concat(dfs, axis=1)
         
-        # 重置索引，变回普通列
         merged_df = merged_df.reset_index()
         
         # 5. 保存合并后的文件
@@ -83,7 +83,6 @@ def save_best_factors(hof, data_portal, toolbox):
         try:
             # --- GPU 计算 ---
             func = toolbox.compile(expr=ind)
-            # 确保参数列表与 fitness.py 和 run.py 一致
             factor_gpu = func(
                 data_portal.features['RET'],
                 data_portal.features['OPEN_GAP'],

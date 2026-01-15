@@ -6,8 +6,9 @@ from functools import partial
 from deap import base, creator, tools, gp, algorithms
 import warnings
 warnings.filterwarnings('ignore')
+import gp_logic
 
-# 导入自定义模块
+
 import config
 import operators
 import data_loader
@@ -16,32 +17,19 @@ import utils
 
 def main():
     # 1. 加载数据 (自动进入 GPU)
-    # 请确保 config.py 里的路径是正确的
     data = data_loader.DataPortalGPU()
     
     # 2. GP 环境设置
-    pset = gp.PrimitiveSet("MAIN", 12)
+    pset = gp.PrimitiveSet("MAIN", 18) 
 
     pset.renameArguments(
-        ARG0='RET',       # 收益率
-        ARG1='GAP',       # 跳空
-        ARG2='HL_R',      # 振幅
-        ARG3='CO_R',      # 日内涨幅
-        ARG4='L_VOL',     # 对数成交量
-        ARG5='TO_RATE',   # 换手率
-        ARG6='L_CAP',     # 对数市值
-        ARG7='VWAP_D',    # 均价偏离
-        ARG8='AMI',       # Amihud
-        ARG9='BODY',      # 实体率
-        ARG10='UP_S',     # 上影线
-        ARG11='LO_S',      # 下影线
-        ARG12='LOG_RET',  # 对数收益
-        ARG13='SKEW',     # 偏度
-        ARG14='KURT',     # 峰度
-        ARG15='BB_W',     # 布林带宽度
-        ARG16='ATR',      # 标准化ATR
-        ARG17='V_SKEW'    # 波动率偏斜
-    )
+        ARG0='RET',       ARG1='GAP',       ARG2='HL_R', 
+        ARG3='CO_R',      ARG4='L_VOL',     ARG5='TO_RATE', 
+        ARG6='L_CAP',     ARG7='VWAP_D',    ARG8='AMI', 
+        ARG9='BODY',      ARG10='UP_S',     ARG11='LO_S',
+        ARG12='LOG_RET',  ARG13='SKEW',     ARG14='KURT', 
+        ARG15='BB_WIDTH', ARG16='ATR',      ARG17='VOL_SKEW')
+        
     # 注册 GPU 算子
     pset.addPrimitive(operators.add, 2)
     pset.addPrimitive(operators.sub, 2)
@@ -73,7 +61,6 @@ def main():
     def ts_sum_10(x): return operators.ts_sum(x, 10)
     pset.addPrimitive(ts_sum_10, 1)
 
-
     pset.addPrimitive(operators.ts_corr_10, 2)
     pset.addEphemeralConstant("rand", lambda: random.uniform(-1, 1))
 
@@ -85,20 +72,21 @@ def main():
 
     # Toolbox
     toolbox = base.Toolbox()
-    toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=1, max_=3)
-    toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+
+    toolbox.register("individual", gp_logic.warm_start_init, creator.Individual, pset)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    
     toolbox.register("compile", gp.compile, pset=pset)
-    
-    # 挂载 GPU 评估函数
     toolbox.register("evaluate", partial(fitness.calculate_fitness_gpu, data_portal=data, toolbox=toolbox))
-    
     toolbox.register("select", tools.selTournament, tournsize=config.TOURNAMENT_SIZE)
     toolbox.register("mate", gp.cxOnePoint)
-    toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
-    toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
-    
-    # 限制树深度
+
+    if config.RESTRICT_STRUCTURE:
+        print("[Main] Using Structure-Preserving Point Mutation.")
+        toolbox.register("mutate", gp_logic.point_mutation, pset=pset)
+    else:
+        toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
+        toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
     toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=8))
     toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=8))
 

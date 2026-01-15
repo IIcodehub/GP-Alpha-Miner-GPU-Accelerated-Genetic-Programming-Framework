@@ -5,7 +5,7 @@ RAW_DATA_PATH = 'data/data.parquet'
 # 目标收益数据（Parquet格式，用于计算IC）
 RET_DATA_PATH = 'data/ret_df.parquet'
 # 结果保存目录
-OUTPUT_DIR = 'GP/GPFactors'
+OUTPUT_DIR = 'GP/GPFactorsRound3'
 
 # ----------------- 进化算法参数 (Hyperparameters) -----------------
 # 种群大小：每一代有多少个公式存活。
@@ -28,14 +28,34 @@ IC_METHOD = 'rank'
 
 # 换手率惩罚系数：值越大，越倾向于挖掘低换手因子。
 # 如果挖出的因子全是 Close/Open 这种高频噪音，调大它。
-PENALTY_TURNOVER = 0.05
+PENALTY_TURNOVER = 0.01
 
 # 复杂度惩罚系数：值越大，越倾向于挖掘短公式。
 # 防止 "Bloat"（公式膨胀）现象。
-PENALTY_COMPLEXITY = 0.05
+PENALTY_COMPLEXITY = 0.02
 
 # ----------------- 硬件开关 -----------------
 # 是否使用 GPU 加速。如果设为 False，代码会报错（因为 operators 写死了 cupy）
 USE_GPU = True
 
 OUTPUT_NUM = 20
+
+# ----------------- 热启动配置 (Warm Start) -----------------
+# 是否开启热启动模式
+# True: 种群初始化时使用 seeds.py 中的公式
+# False: 使用传统的 genHalfAndHalf 随机生成
+USE_WARM_START = True
+
+# 结构约束模式
+# True: 变异时仅改变叶子节点（特征）或参数，不改变公式结构（论文中的 Point Mutation）
+# False: 允许传统的子树替换（可能会破坏好结构）
+RESTRICT_STRUCTURE = False
+
+# ----------------- 结构约束专用参数 (Internal Probabilities) -----------------
+# 在同构交叉中，两个相同位置的叶子节点发生交换的概率
+# 0.5 意味着平均有一半的叶子会被交换 (类似 Uniform Crossover)
+P_LEAF_SWAP = 0.5
+
+# 在点突变中，每个叶子节点发生突变的概率
+# 0.2 意味着一个公式里平均有 20% 的特征会被替换
+P_LEAF_MUTATION = 0.2

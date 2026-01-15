@@ -1,201 +1,160 @@
-[中文](./README(CH).md#核心特性) | English
+[简体中文](./README(CH).md) | English
+
 # 🧬 GP-Alpha-Miner: GPU-Accelerated Genetic Programming Framework
 
-**GP-Alpha-Miner** is a high-performance, industrial-grade quantitative factor mining framework. It combines the searching capability of Genetic Programming (GP) with the parallel computing power of GPUs, aimed at automatically discovering Alpha factors with high ICIR and low turnover rates within massive datasets.
+![CuPy](https://img.shields.io/badge/Backend-CuPy%20(GPU)-green)
+![DEAP](https://img.shields.io/badge/Framework-DEAP-orange)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-This project is specifically designed for the **A-share market**, featuring built-in rigorous **anti-overfitting** and **anti-look-ahead bias** mechanisms. It is suitable for quantitative researchers, strategy developers, and financial engineering students.
-
----
-
-## ✨ Key Features
-
-* 🚀 **GPU Ultra-Fast Computation**: Underlying operators are implemented based on `CuPy` matrix operations, supporting second-level factor calculation for 5000+ stocks across the entire market, with efficiency improved by 50-100x compared to CPUs.
-* 🛡️ **Rigorous Data Alignment**:
-    * **Feature De-dimensioning**: Completely masks absolute prices (such as Open, Close), forcing the use of relative returns and ratios to prevent the machine from mining pseudo-factors.
-    * **Target Shift**: Strictly executes `Target = Returns.shift(-1)`, ensuring that T-day data is used to predict T+1 day returns, eliminating look-ahead bias.
-
-
-* 🧠 **Intelligent Fitness Evaluation**:
-    * **IC_METHOD = 'Rank'**: Forces the use of Spearman rank correlation to resist data noise.
-    * **Multiple Penalties**: Introduces Turnover Penalty and Parsimony Pressure (complexity penalty) to guide the machine toward mining factors with concise logic and stable holdings.
-
-
-* 🧩 **Rich Operator Library**: Built-in WorldQuant Alpha101-style Time-Series and Cross-Sectional operators.
-* 💾 **Automated Pipeline**: Supports Grid Search, automatic result archiving, and automatic merging of factor wide tables.
+**GP-Alpha-Miner** is a high-performance quantitative factor automatic mining framework designed specifically for the A-share market. By combining the global search capabilities of Genetic Programming (GP) with the massive parallel computing power of **GPU (CuPy)**, this project achieves second-level factor backtesting and evolution. It features deep financial production logic: from non-linear volatility features to structure-constrained mutation and automated grid search.
 
 ---
 
-## 🏗️ Architecture Overview
+## ✨ Key Highlights
+
+* 🚀 **Extreme Performance**: The operator library is fully vectorized and operates directly in CuPy device memory. On a $5000 \times 1000$ data matrix, the iteration efficiency is approximately 100x higher than traditional CPU-based frameworks.
+
+* ⚙️ **Automated Grid Search**: Built-in parameter combination traversal module that automatically optimizes hyperparameters such as population size, generations, and turnover penalties, archiving results for each experiment independently.
+* 🧬 **Enhanced Evolution Logic**:
+    * **Warm Start**: Introduces a prior seed library to inject classic financial logic into the population's genes.
+    * **Structure Constrained**: Provides isomorphic crossover and point mutation to ensure the "logical skeleton" remains intact.
+* 🛡️ **Industrial-Grade Anti-Overfitting**:
+    * **Feature De-dimensioning**: Masks absolute prices and forces the use of 18 relative features like returns and bias ratios.
+    * **Look-ahead Prevention**: Strictly executes `shift(-1)` on target returns to ensure all signals are based on known information.
+---
+
+## 🏗️ System Architecture
 
 ```text
 GP-Alpha-Miner/
-├── config.py            # 🎛️ [Center] Global parameter configuration 
-├── data_loader.py       # 🏗️ [Foundation] Data cleaning, feature engineering, CPU->GPU memory transfer
-├── operators.py         # 🧮 [Engine] CuPy-based vectorized operator library (all running on GPU)
-├── fitness.py           # ⚖️ [Referee] Fitness function, numerical cleaning, and scoring logic
-├── run.py               # 🚀 [Launch] DEAP evolutionary algorithm main loop
-├── utils.py             # 💾 [Logistics] Result saving, factor merging, and logging
-└── README.md            # 📖 Instruction manual
-
+├── config.py           # 🎛️ [Control Tower] Global parameter definitions (population, penalties, switches)
+├── data_loader.py      # 🏗️ [Bedrock] 18D advanced feature engineering, async GPU memory loading
+├── operators.py        # 🧮 [Engine] 30+ CuPy-based vectorized operators (Time-series/Cross-sectional/Regression)
+├── fitness.py          # ⚖️ [Judge] RankIC evaluation, turnover proxy, complexity penalty
+├── gp_logic.py         # 🧬 [Evolution] Structured mutation/crossover, seed loader
+├── seeds.py            # 🌱 [Seed Bank] Pre-set expert logic formulas
+├── run.py              # 🚀 [Main] DEAP environment registration and mining loop
+├── grid_search.py      # 🔍 [Optimization] Automated parameter grid traversal module
+└── utils.py            # 💾 [Logistics] GPU data transfer, factor storage, auto-merge wide tables
 ```
 
 ---
 
-## 📊 Input Features
+## 📊 18-Dimensional Input Features
 
-To prevent the GP algorithm from "cheating" by fitting absolute stock price values (e.g., Kweichow Moutai at 2000 RMB vs. low-priced stocks at 2 RMB), this framework performs mandatory feature engineering in `data_loader.py`. The GP can only see the following **18 relative indicators**, categorized into basic, high-order statistical, and volatility types:
+The system fixes leaf nodes to 18 engineered features (`ARG0` to `ARG17`), ensuring the mined logic maintains economic interpretability.
 
-| Code (Arg Name) | Full Name | Mathematical Definition (Formula) | Physical Meaning |
-| --- | --- | --- | --- |
-| **RET** | Return | $Close_t / Close_{t-1} - 1$ | **Daily Return**: The most basic source for momentum/reversal signals. |
-| **GAP** | Open Gap | $Open_t / Close_{t-1} - 1$ | **Opening Gap**: Reflects the impact of overnight information on stock prices. |
-| **HL_R** | High-Low Ratio | $High_t / Low_t - 1$ | **Intraday Amplitude**: Reflects the degree of long-short divergence during the day. |
-| **CO_R** | Close-Open Ratio | $Close_t / Open_t - 1$ | **K-line Entity Growth**: Reflects the active push intent of intraday capital. |
-| **L_VOL** | Log Volume | $\ln(Volume_t + 1)$ | **Log Volume**: Reflects transaction activity (dimensionless). |
-| **TO_RATE** | Turnover Rate | $Volume_t / Shares\_Outstanding$ | **Turnover Rate**: Reflects the heat of chip exchange. |
-| **L_CAP** | Log Market Cap | $\ln(MarketCap_t + 1)$ | **Log Market Cap**: Used to mine market cap preferences (large-cap/small-cap). |
-| **VWAP_D** | VWAP Distance | $Close_t / VWAP_t - 1$ | **Average Price Deviation**: Position of closing price relative to the full-day average price; a strong reversal signal. |
-| **AMI** | Amihud Illiquidity | $\lvert RET_t \rvert / Amount_t$ | **Illiquidity Indicator**: Price fluctuation per unit of trading volume, capturing liquidity premiums. |
-| **BODY** | Body Ratio | $\lvert Close_t - Open_t \rvert / (High_t - Low_t)$ | **Body Ratio**: Proportion of the K-line body relative to the full-day amplitude, used to judge trend strength. |
-| **UP_S** | Upper Shadow | $(High_t - \max(O,C)) / (High_t - Low_t)$ | **Upper Shadow Rate**: Reflects the strength of overhead selling pressure. |
-| **LO_S** | Lower Shadow | $(\min(O,C) - Low_t) / (High_t - Low_t)$ | **Lower Shadow Rate**: Reflects the strength of underlying support. |
-| **LOG_RET** | Log Return | $\ln(Close_t / Close_{t-1})$ | **Log Return**: Compared to simple returns, it better fits normal distribution assumptions and is suitable for capturing non-linear features. |
-| **SKEW** | Return Skewness | $RollingSkew(RET, 20)$ | **Return Skewness**: Measures distribution asymmetry (left/right skew), capturing tail risks. |
-| **KURT** | Return Kurtosis | $RollingKurt(RET, 20)$ | **Return Kurtosis**: Measures the "fat-tail" degree of the distribution, capturing the probability of extreme market conditions. |
-| **BB_W** | Bollinger Width | $(Upper - Lower) / Mid$ | **Bollinger Width**: A classic volatility indicator reflecting market compression (accumulation) and expansion (breakout). |
-| **ATR** | Normalized ATR | $ATR_{14} / Close_t$ | **Normalized ATR**: De-dimensioned average true range, measuring the absolute intensity of price fluctuations. |
-| **V_SKEW** | Volatility Skew | $Corr(RET, \lvert RET \rvert, 20)$ | **Volatility Skew**: Measures the "leverage effect." Negative values usually imply that price drops lead to amplified volatility (panic). |
+### 1. Basic Price-Volume Features
+| No. | Identifier | Mathematical Definition (LaTeX) | Physical Meaning |
+| :--- | :--- | :--- | :--- |
+| `ARG0` | `RET` | $R_t = \frac{P_{close,t}}{P_{close,t-1}} - 1$ | Daily Return (Momentum/Reversal) |
+| `ARG1` | `OPEN_GAP` | $\frac{O_t}{P_{close,t-1}} - 1$ | Overnight Gap (Opening momentum) |
+| `ARG2` | `HL_RATIO` | $\frac{H_t}{L_t} - 1$ | Intraday Range (Long-short divergence) |
+| `ARG3` | `CO_RATIO` | $\frac{P_{close,t}}{O_t} - 1$ | Intraday Body Return (Bullish strength) |
+| `ARG4` | `LOG_VOL` | $\ln(V_t + 1)$ | Trading Activity (Log volume) |
+| `ARG5` | `TO_RATE` | $\frac{V_t}{\text{FreeShares}}$ | Turnover Rate (Liquidity intensity) |
+| `ARG6` | `LOG_CAP` | $\ln(\text{FloatCap}_t)$ | Market Cap (Log scale) |
 
-> **Notes**:
-> 1. All calculations involving division include a `1e-6` epsilon protection to prevent division-by-zero errors.
-> 2. High-order statistics (Skew, Kurt, Vol_Skew) are typically calculated based on a window of the past 20 trading days (approximately one month).
-> 
-> 
+### 2. Structure, VWAP & Liquidity
+| No. | Identifier | Mathematical Definition (LaTeX) | Physical Meaning |
+| :--- | :--- | :--- | :--- |
+| `ARG7` | `VWAP_D` | $\frac{P_{close,t}}{\text{VWAP}_t} - 1$ | VWAP Bias (Cost deviation) |
+| `ARG8` | `AMIHUD` | $\frac{|R_t|}{\text{Amount}_t} \times 10^9$ | Amihud Illiquidity (Impact cost) |
+| `ARG9` | `BODY_R` | $\frac{|P_t - O_t|}{H_t - L_t + \epsilon}$ | K-line Body Ratio (Trend reliability) |
+| `ARG10` | `UP_SHD` | $\frac{H_t - \max(O, P)}{H_t - L_t + \epsilon}$ | Upper Shadow (Resistance/Selling pressure) |
+| `ARG11` | `LO_SHD` | $\frac{\min(O, P) - L_t}{H_t - L_t + \epsilon}$ | Lower Shadow (Support/Buying pressure) |
+
+### 3. High-Order Non-linear Statistics
+| No. | Identifier | Mathematical Definition (LaTeX) | Physical Meaning |
+| :--- | :--- | :--- | :--- |
+| `ARG12` | `LOG_RET` | $\ln(P_t / P_{t-1})$ | Log Return (Non-linear changes) |
+| `ARG13` | `SKEW` | $\text{Skew}(R, 20)$ | Return Skewness (Distribution asymmetry) |
+| `ARG14` | `KURT` | $\text{Kurt}(R, 20)$ | Return Kurtosis (Extreme event frequency) |
+| `ARG15` | `BB_WIDTH` | $\frac{Upper_{20} - Lower_{20}}{Mid_{20}}$ | Bollinger Band Width (Volatility squeeze) |
+| `ARG16` | `ATR` | $\frac{\text{ATR}_{14}}{P_t}$ | Normalized Average True Range |
+| `ARG17` | `VOL_SKEW` | $\text{Corr}(R, \vert R \vert, 20)$ | Volatility Skew |
 
 ---
 
-## 🧮 Operator Library
+## 🧮 Operator Library Manual
 
-This framework implements the following GPU operators in `operators.py`. All operators support full-matrix parallel computation.
+All operators perform lookbacks over a window $d$ at time $t$.
 
-### 1. Basic Math Operators
+### 1. Basic Math & Non-Linear Operators
+| Operator | Description | Arity | Logic/Formula |
+| :--- | :--- | :--- | :--- |
+| `add(x, y)` | Addition | 2 | $x + y$ |
+| `sub(x, y)` | Subtraction | 2 | $x - y$ |
+| `mul(x, y)` | Multiplication | 2 | $x \times y$ |
+| `protected_div(x, y)` | Protected Div | 2 | $x / y$ (Returns 0 or 1 if $y \approx 0$) |
+| `abs_val(x)` | Absolute Value | 1 | $\lvert x \rvert$ |
+| `sigmoid(x)` | Sigmoid | 1 | $1 / (1 + e^{-x})$ (Map to (0,1)) |
+| `signed_power(x, a)` | Signed Power | 1 | $sign(x) \times \lvert x \rvert^a$ |
 
-| Operator | Description | Arity (Number of Arguments) |
-| --- | --- | --- |
-| `add(x, y)` | $x + y$ | 2 |
-| `sub(x, y)` | $x - y$ | 2 |
-| `mul(x, y)` | $x \times y$ | 2 |
-| `protected_div(x, y)` | $x / y$ (Returns 1 if $y \approx 0$ ) | 2 |
-| `abs_val(x)` | $\lvert x \rvert$ | 1 |
-| `log_abs(x)` | $\ln(\lvert x \rvert + \epsilon)$ | 1 |
-| `sqrt_abs(x)` | $\sqrt{\lvert x \rvert}$ | 1 |
-
-### 2. Time-Series Operators (Rolling Window)
-
-Used to extract features over time series. Window length  is typically fixed at 5, 10, or 20.
-
+### 2. Rolling Statistics Operators
 | Operator | Description | Logic |
-| --- | --- | --- |
-| `ts_mean(x, d)` | Rolling Mean | $\frac{1}{d} \sum_{i=0}^{d-1} x_{t-i}$ |
-| `ts_std(x, d)` | Rolling Std Dev | $\sqrt{Var(x_{t-d}...x_t)}$ |
-| `ts_delta(x, d)` | Time-Series Difference | $x_t - x_{t-d}$ |
-| `ts_max(x, d)` | Rolling Max | $\max(x_{t-d}...x_t)$ |
-| `ts_min(x, d)` | Rolling Min | $\min(x_{t-d}...x_t)$ |
-| `ts_rank(x, d)` | Time-Series Rank | Percentile rank of  within the past $d$ days of data (0~1) |
-| `ts_corr(x, y, d)` | Rolling Correlation | $Corr(x_{t-d}...x_t, y_{t-d}...y_t)$ |
-| `decay_linear(x, d)` | Linear Decay | Weighted average, where more recent data has higher weight ($w_t=d, w_{t-1}=d-1...$) |
+| :--- | :--- | :--- |
+| `ts_mean(x, d)` | Rolling Mean | $\mu = \frac{1}{d} \sum x_i$ |
+| `ts_std(x, d)` | Rolling Std | $\sigma = \sqrt{Var(x)}$ |
+| `ts_delta(x, d)` | Time Difference | $x_t - x_{t-d}$ |
+| `ts_rank(x, d)` | Rolling Rank | Percentile rank of $x_t$ over $d$ days (0~1) |
+| `ts_decay_linear(x, d)`| Linear Decay | Weighted average ($w_t=d, w_{t-1}=d-1...$) |
 
-### 3. Cross-Sectional Operators
-
-Used to compare the relative strength of different stocks at the same point in time.
-
+### 3. Advanced Trend & Distribution
 | Operator | Description | Logic |
-| --- | --- | --- |
-| `cs_rank(x)` | Cross-Sectional Rank | Transforms intraday factor values into a percentile rank of 0~1. |
-| `cs_scale(x)` | Cross-Sectional Z-Score | $(x - \mu_{date}) / \sigma_{date}$. De-dimensioning allows data from different distributions to be added or subtracted. |
+| :--- | :--- | :--- |
+| `ts_zscore(x, d)` | Rolling Z-Score | $(x_t - \mu_d) / \sigma_d$ (Mean reversion) |
+| `ts_skew(x, d)` | Rolling Skew | 3rd moment (Asymmetry) |
+| `ts_tslope(x, d)` | Time Slope | Regression slope of $x$ against time $t$ |
+| `ts_rsi(x, d)` | RSI | Standard Relative Strength Index |
+
+### 4. Pairwise & Regression Operators
+| Operator | Description | Arity | Logic |
+| :--- | :--- | :--- | :--- |
+| `ts_corr(x, y, d)` | Rolling Corr | 2 | $Cov(x,y) / (\sigma_x \sigma_y)$ |
+| `ts_resid(x, y, d)` | Rolling Resid | 2 | $y - (\alpha + \beta x)$ (Alpha idiosyncratic) |
 
 ---
 
-## ⚙️ Quick Start
+## ⚖️ Fitness & Grid Search
 
-### 1. Environment Installation
+### 1. Turnover Penalty Proxy
+To balance calculation speed with execution costs, we calculate the **cross-sectional auto-correlation**:
+$$\rho_{\text{auto}} = \text{CosineSimilarity}(F_t, F_{t+1})$$
+$$\text{Penalty}_{\text{turnover}} = (1 - \text{Avg}(\rho_{\text{auto}})) \times \lambda_{\text{turn}}$$
+*Translation: Higher auto-correlation leads to lower turnover and lower penalties.*
 
-It is recommended to use Conda to manage the environment.
-
-```bash
-# 1. Create environment
-conda create -n gp_miner python=3.8
-conda activate gp_miner
-
-# 2. Install CuPy with CUDA support (Please check your CUDA version via nvidia-smi first)
-# For CUDA 12.x:
-pip install cupy-cuda12x
-# For CUDA 11.x:
-pip install cupy-cuda11x
-
-# 3. Install other dependencies
-pip install pandas numpy deap pyarrow
-```
-
-### 2. Data Preparation
-
-Please place your data in the `data/` directory:
-
-* `data/data.parquet`: Contains fields such as `Date`, `Ticker`, `Open`, `High`, `Low`, `Close`, `Volume`, `TurnOverValue`, etc.
-* `data/ret_df.parquet`: Contains `Date`, `Ticker`, `Target_Return`.
-
-### 3. Running the Miner
-
-```bash
-python run.py
-```
-
-### 4. Results Output
-
-After the program finishes, results will be saved in an automatically generated experiment folder under `GP/GPFactors/`.
-
-* **`formulas.csv`**: Mined factor formulas and fitness scores.
-* **`All_Factors_Merged.parquet`**: Wide table data of all Top factors (automatically merged, ready for machine learning).
+### 2. Final Fitness Formula
+$$\text{Fitness} = \text{ICIR} - \text{Penalty}_{\text{turnover}} - \text{Length}(\text{Formula}) \times \lambda_{\text{comp}}$$
+* **ICIR**: $\frac{\text{Mean}(IC)}{\text{Std}(IC)}$, defaults to **Rank IC**.
+* **Direction Penalty**: If $\text{Mean}(IC) < 0$, the score is heavily penalized (0.1x).
 
 ---
 
-## 🔬 Advanced: Tuning Guide
-
-Modify parameters in `config.py` to control the mining direction:
-
-* **Want to mine low-frequency/fundamental factors?**
-* Set `IC_METHOD = 'rank'`
-* Increase `PENALTY_TURNOVER = 0.1` (Strictly penalize high turnover)
-* Increase `GENERATIONS = 30` (Deep search)
+## 🧬 Evolutionary Mechanisms
 
 
-* **Want to mine high-frequency/price-volume factors?**
-* Set `IC_METHOD = 'rank'`
-* Decrease `PENALTY_TURNOVER = 0.01` (Allow some turnover)
-* Focus on `ts_corr`, `ts_delta` type operators
+### 1. Warm Start
+The system initializes with a probability of loading manual logical skeletons from `seeds.py` (e.g., `ts_corr_10(RET, L_VOL)`).
 
-
-* **Found factors are all `CO_R` (Overfitting)?**
-* Increase `PENALTY_COMPLEXITY`
-* Or temporarily mask `CO_R` input in `run.py`
-
-
+### 2. Structure Constrained
+* **Point Mutation**: Only replaces leaf nodes, keeping the parent operators intact.
+* **Isomorphic Crossover**: Only swaps subtrees with similar depth and structure to preserve logical "DNA."
 
 ---
 
-## ⚠️ FAQ
+## 🚀 Quick Start
 
-**Q: Why are the generated factors all -999 points?**
-A: Usually, this is because the number of parameters in `pset` in `run.py` does not match the number of inputs in `fitness.py`. Please check if `pset = gp.PrimitiveSet("MAIN", 12)` is correctly set to 12.
-
-**Q: Why can't I see GPU usage?**
-A: GP calculation is impulsive. The GPU will only be fully loaded during the Evaluation phase (at the start of each generation); the Crossover and Mutation phases are handled by the CPU. You can observe this using `watch -n 0.5 nvidia-smi`.
-
-**Q: How can I confirm that no look-ahead bias was used?**
-A: Check `data_loader.py`. We have built-in `target_shifted = target_raw.shift(-1)`, which ensures that Row(T) features correspond to Row(T+1) returns.
-
----
-
-## 🤝 Contribution
-
-Feel free to submit an Issue or Pull Request to add new operators (such as complex logic from Alpha191) or optimize computational efficiency.
+1.  **Install Environment**:
+    ```bash
+    pip install pandas numpy cupy-cuda11x deap pyarrow
+    ```
+2.  **Run Grid Search**:
+    ```bash
+    # Run after configuring grid_search.py
+    python grid_search.py
+    ```
+3.  **Outputs**:
+    Results are stored in `GP/GPFactorsRound/`.
+    * `formulas.csv`: List of Top factors with math expressions and scores.
+    * `All_Factors_Merged.parquet`: Merged wide table with `TradingDay` and `SecuCode` indices.
